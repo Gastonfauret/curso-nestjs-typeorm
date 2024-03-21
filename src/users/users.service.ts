@@ -4,10 +4,13 @@ import { User } from './entities/users.entity';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { createProfileDTO } from './dto/create-profile.dto';
+import { Profile } from './profile.entity';
 
 @Injectable()
 export class UsersService {
-    constructor(@InjectRepository(User) private userRepository: Repository<User>) { }
+    constructor(@InjectRepository(User) private userRepository: Repository<User>,
+        @InjectRepository(Profile) private profileRepository: Repository<Profile>) { }
 
     async createUser(user: CreateUserDto) {
         const userFound = await this.userRepository.findOne({
@@ -26,12 +29,15 @@ export class UsersService {
 
 
     getUsers() {
-        return this.userRepository.find()
+        return this.userRepository.find({
+            relations: ['posts', 'profile']
+        })
     }
 
     async getUserById(id: number) {
         const userFound = await this.userRepository.findOne({
-            where: { id }
+            where: { id }, 
+            relations: ['posts']
         })
 
         if (!userFound) {
@@ -49,7 +55,7 @@ export class UsersService {
             return this.userRepository.delete({ id });
         }
 
-        
+
     }
 
     async updateUser(id: number, user: UpdateUserDto) {
@@ -59,9 +65,24 @@ export class UsersService {
             return new HttpException('User not found', HttpStatus.NOT_FOUND)
         } else {
             const updatedUser = Object.assign(userFound, user);
-            return this.userRepository.save(updatedUser)            
-        }        
+            return this.userRepository.save(updatedUser)
+        }
     }
+
+    async createProfile(id: number, profile: createProfileDTO) {
+        const userFound = await this.userRepository.findOne({ where: { id } })
+
+        if (!userFound) {
+            return new HttpException('User not Found', HttpStatus.NOT_FOUND)
+        }
+
+        const newProfile = this.profileRepository.create(profile)
+        const savedProfile = await this.profileRepository.save(newProfile)
+        userFound.profile = savedProfile
+
+        return this.userRepository.save(userFound)
+    }
+    
 }
 
 //1:09:46
